@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	{block:PostTitle}
+		<meta property="og:title" content="{PostTitle}"/>
+	{/block:PostTitle}
+
+	<title>{Title}{block:PostTitle} • {PostTitle}{/block:PostTitle}</title>
+
+	<link rel="shortcut icon" href="{Favicon}">
+	<link rel="alternate" type="application/rss+xml" href="{RSS}">
+
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/URI.js/1.16.1/URI.min.js"></script>
+
+	{block:IndexPage}
+	<script type="text/javascript">
+		(function ( $ ) {
+			$.fn.resize = function(maxWidth) {
+				return this.each(function(){
+					var w = $(this).attr("width");
+					var h = $(this).attr("height");
+					var ratio = maxWidth / w;
+					$(this).attr("width", w*ratio);
+					$(this).attr("height", h*ratio);
+				});
+			};
+		}( jQuery ));
+
+		function pathAtIndex(index) {
+			var url = new URI();
+			var segments = url.segment();
+			var found = false;
+			for (var i = 0; i < segments.length; i++) {
+				if (segments[i] == "page") {
+					found = true;
+					if ((i + 1) < segments.length) {
+						segments[(i+1)] = index;
+					} else {
+						segments.push(index.toString())
+					}
+				}
+			}
+			if (!found) {
+				segments.push("page", index)
+			}
+			url.segment(segments);
+
+			return url.path();
+		}
+
+		function insertPage(index, postFilter) {
+			return $.ajax({
+				url: pathAtIndex(index)
+			}).done(function(responseText) {
+				$posts = $("<div>").append($.parseHTML(responseText)).find("#container .post");
+				$posts.each(function(){
+					$("#container").append(postFilter($(this)));
+				});
+			});
+		}
+
+		$(function(){
+			var n = 3;
+			var margin = 10;
+			var width = $("#container").width();
+			var column = (width - (n * margin)) / n;
+
+			function fetch(index) {
+				return insertPage(index, function($post){
+					$post.find("img").resize(column).one("load", function(){
+						$(this).fadeTo("fast", 1);
+					}).each(function() {
+					  if(this.complete) $(this).load();
+					});
+					return $post;
+				});
+			}
+
+			var chars = ["◡◡", "⊙⊙", "◠◠"];
+			var i = 0;
+			var $loading = $(".loading");
+			window.setInterval(function(){
+				$loading.html(chars[i++ % chars.length]);
+			}, 200);
+
+			$("body, html").scrollTop($(".bar").height() + margin);
+			$('.bar').css("opacity", 1);
+
+			$("img").resize(column).one("load", function(){
+				$(this).fadeTo("fast", 1);
+			}).each(function() {
+			  if(this.complete) $(this).load();
+			});
+
+			$("#container").waterfall({ 
+				colMinWidth: column, 
+				defaultContainerWidth: width,
+				autoresize: true
+			});
+
+			setInterval(function () {
+				if (width != $("#container").width()){
+					width = $("#container").width();
+					column = (width - (n * margin)) / n;
+					$("img").resize(column);
+					$("#container").waterfall({ 
+						colMinWidth: column, 
+						defaultContainerWidth: width,
+						autoresize: true
+					});
+				}
+			}, 100);
+
+			var index = 1;
+			var fetching = 0;
+			setInterval(function () {
+				var ScrollTopNumber = $(".post").last().offset().top - (3 * $(window).height());
+				if ($(window).scrollTop() > ScrollTopNumber){
+					if (fetching >= index) return;
+					fetching = index;
+					fetch(index + 1).done(function(){
+						index++
+					});
+				}
+			}, 300);
+		});
+	</script>
+
+	{/block:IndexPage}
+
+	<style type="text/css">
+		body {
+  			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+			font-size: 16px;
+			color: #1d1e19;
+			margin: 8px;
+		}
+
+		{block:IndexPage;}
+		body {
+			margin-right: 0px;
+		}
+		{/block:IndexPage}
+
+		a {
+			color: {AccentColor};
+		}
+
+		.copyright {
+			float: right;
+		}
+		
+		.bar {
+			margin-bottom: 10px;
+			color: #999;
+			opacity: 0;
+		}
+
+		.bar a {
+			color: #999;
+		}
+
+		.bar span, .bar a {
+			margin-right: 10px;
+		}
+
+		.notes {
+			position: absolute;
+			bottom: 22px;
+			left: 10px;
+		}
+
+		.post:hover a {
+			display: inline;
+		}
+
+		.notes a {
+			color: white;
+			text-decoration: none;
+			background: rgba(0, 0, 0, 0.2);
+			padding: 2px 4px;
+			display: none;
+		}
+
+		.post img {
+			display: block;
+			margin: 0 0 10px 0;
+		}
+
+		.index .post img {
+			opacity: 0;
+		}
+
+		.single .post img {
+			float: left;
+			max-width: 100%;
+		}
+
+		.single .post .caption {
+			float: left;
+			margin-left: 10px;
+		}
+
+		{CustomCSS}
+	</style>
+</head>
+<body>
+	{block:IndexPage}
+	<div id="container" class="index">
+		<div class="bar title" data-float="left" data-span="1">
+			<span>{Title}</span>
+		</div>
+
+		<div class="bar nav" data-float="right" data-span="2">
+			<a href="/archive">Archive</a>
+			{block:TagPage}<span>#{Tag}</span>{/block:TagPage}
+			<span>p. {CurrentPage} of {TotalPages}</span>
+		</div>
+	{block:Posts}
+
+		{block:Photoset}
+		<div class="post photoset">
+
+			{block:Photos} 
+			<a href="{permalink}">
+				<img src="{PhotoURL-500}" width="{PhotoWidth-500}" height="{PhotoHeight-500}" border="0" />
+			</a>
+			{/block:Photos}
+			<span class="notes">
+				<a href="{ReblogURL}">↺</a>
+			</span>
+		</div>
+		{/block:Photoset}
+
+		{block:Photo}
+		<div class="post photo">
+
+			<a href="{Permalink}"><img src="{PhotoURL-500}" width="{PhotoWidth-500}"height="{PhotoHeight-500}" border="0" /></a>
+			<span class="notes">
+				<a href="{ReblogURL}">↺</a>
+			</span>
+		</div>
+		{/block:Photo}
+
+	{/block:Posts}
+
+	</div>
+	<div class="bar footer">
+		<span class="loading"></span>
+		<span class="copyright">(c) 2015</span>
+    </div>
+	<script src="http://static.tumblr.com/3dxzzek/XN1nwfp2g/jquery.waterfall.js"></script>
+	{/block:IndexPage}
+
+	{block:PermalinkPage}
+	<div id="container" class="single">
+
+	{block:Posts}
+		{block:Photoset}
+
+		<div class="post photoset">
+		{Photoset-500}
+
+		{block:Caption}
+		<div class="caption">{Caption}</div>
+		{/block:Caption}
+
+		</div>
+		{/block:Photoset}
+
+		{block:Photo}
+		<div class="post photo">
+			{LinkOpenTag}<img src="{PhotoURL-HighRes}" border="0"/>{LinkCloseTag}
+
+			{block:Caption}
+				<div class="caption">{Caption}</div>
+			{/block:Caption}
+		</div>
+		{/block:Photo}
+
+
+	{/block:Posts}
+	</div>
+	{/block:PermalinkPage}
+</body>
+</html>
