@@ -12,42 +12,69 @@
 	<link rel="alternate" type="application/rss+xml" href="{RSS}">
 
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/URI.js/1.16.1/URI.min.js"></script>
 
 	{block:IndexPage}
 	<script type="text/javascript">
 		(function ( $ ) {
-			$.fn.resize = function(maxWidth) {
-				return this.each(function(){
-					var w = $(this).attr("width");
-					var h = $(this).attr("height");
-					var ratio = maxWidth / w;
-					$(this).attr("width", w*ratio);
-					$(this).attr("height", h*ratio);
-				});
-			};
+		$.fn.resize = function(maxWidth) {
+			function applyResize($img, w, h, maxWidth) {
+				var ratio = maxWidth / w;
+				var newWidth = w * ratio;
+				var newHeight = h * ratio;
+				$img.attr("width", newWidth).attr("height", newHeight)
+					.attr("style", "width:" + newWidth + "px !important; height:auto;");
+			}
+			
+			return this.each(function(){
+				var img = this;
+				var $img = $(img);
+				var w = $img.attr("width");
+				var h = $img.attr("height");
+				
+				// Get dimensions from attributes, natural dimensions, or properties
+				if (!w || !h || w === "NaN" || h === "NaN") {
+					w = img.naturalWidth || img.width;
+					h = img.naturalHeight || img.height;
+				}
+				
+				// If dimensions still unavailable, wait for image to load
+				if (!w || !h) {
+					$img.one("load", function() {
+						var nw = this.naturalWidth || this.width;
+						var nh = this.naturalHeight || this.height;
+						if (nw && nh) {
+							applyResize($(this), nw, nh, maxWidth);
+						}
+					});
+					return;
+				}
+				
+				applyResize($img, w, h, maxWidth);
+			});
+		};
 		}( jQuery ));
 
 		function pathAtIndex(index) {
-			var url = new URI();
-			var segments = url.segment();
+			var url = new URL(window.location.href);
+			var segments = url.pathname.split('/').filter(function(segment) {
+				return segment.length > 0;
+			});
 			var found = false;
 			for (var i = 0; i < segments.length; i++) {
 				if (segments[i] == "page") {
 					found = true;
 					if ((i + 1) < segments.length) {
-						segments[(i+1)] = index;
+						segments[(i+1)] = index.toString();
 					} else {
-						segments.push(index.toString())
+						segments.push(index.toString());
 					}
 				}
 			}
 			if (!found) {
-				segments.push("page", index)
+				segments.push("page", index.toString());
 			}
-			url.segment(segments);
-
-			return url.path();
+			
+			return '/' + segments.join('/');
 		}
 
 		function insertPage(index, postFilter) {
@@ -187,6 +214,7 @@
 		.post img {
 			display: block;
 			margin: 0 0 10px 0;
+			max-width: 100%;
 		}
 
 		.index .post img {
@@ -201,6 +229,28 @@
 		.single .post .caption {
 			float: left;
 			margin-left: 10px;
+		}
+
+		blockquote {
+			margin: 0;
+		}
+
+		.index .post p {
+			display: none;
+		}
+
+		.post-content div.npf_row+div.npf_row, .post-content div.npf_row+figure.tmblr-full, .post div.npf_row+div.npf_row, .post div.npf_row+figure.tmblr-full, body div.npf_row+div.npf_row, body div.npf_row+figure.tmblr-full {
+			margin-top: unset;
+		}
+
+		.post-content div.npf_row, .post div.npf_row, body div.npf_row {
+			display: block;
+		}
+
+		.post-content div.npf_row .npf_col figure img, .post div.npf_row .npf_col figure img, body div.npf_row .npf_col figure img {
+			width: unset;
+			height: unset;
+			object-fit: unset;
 		}
 
 		{CustomCSS}
@@ -237,21 +287,30 @@
 		{block:Photo}
 		<div class="post photo">
 
-			<a href="{Permalink}"><img src="{PhotoURL-500}" width="{PhotoWidth-500}"height="{PhotoHeight-500}" border="0" /></a>
+			<a href="{Permalink}"><img src="{PhotoURL-500}" width="{PhotoWidth-500}" height="{PhotoHeight-500}" border="0" /></a>
 			<span class="notes">
 				<a href="{ReblogURL}">↺</a>
 			</span>
 		</div>
 		{/block:Photo}
 
+		{block:Text}
+        <div class="post text">
+            {Body}
+            <span class="notes">
+                <a href="{ReblogURL}">↺</a>
+            </span>
+        </div>
+        {/block:Text}
+
 	{/block:Posts}
 
 	</div>
 	<div class="bar footer">
 		<span class="loading"></span>
-		<span class="copyright">(c) 2015</span>
+		<span class="copyright">© {CopyrightYears}</span>
     </div>
-	<script src="http://static.tumblr.com/3dxzzek/XN1nwfp2g/jquery.waterfall.js"></script>
+	<script src="https://static.tumblr.com/3dxzzek/XN1nwfp2g/jquery.waterfall.js"></script>
 	{/block:IndexPage}
 
 	{block:PermalinkPage}
@@ -279,6 +338,12 @@
 			{/block:Caption}
 		</div>
 		{/block:Photo}
+
+		{block:Text}
+        <div class="post text">
+            {Body}
+        </div>
+        {/block:Text}
 
 
 	{/block:Posts}
